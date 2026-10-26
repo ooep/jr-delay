@@ -1,0 +1,29 @@
+name: deploy-jr-delay
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Assemble static assets
+        run: |
+          mkdir -p deploy-assets
+          cp -r assets/data deploy-assets/data
+          cp assets/_headers deploy-assets/_headers
+          cp assets/robots.txt deploy-assets/robots.txt
+          printf '# jr-delay — 纯静态资产(无 Worker 脚本)，推送 main 即自动部署\nname = "jr-delay"\ncompatibility_date = "2026-10-13"\n\n[assets]\ndirectory = "./deploy-assets"\nnot_found_handling = "404-page"\n' > wrangler.toml
+      - name: Deploy to Cloudflare Workers (zero-cost static)
+        if: ${{ env.CF_API_TOKEN != '' }}
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: c75ed9a498500d7c232d9d59a353341d
+        run: npx wrangler@4 deploy --config wrangler.toml 2>&1 | tail -12
